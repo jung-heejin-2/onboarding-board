@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+<<<<<<< HEAD
 
 type WeekFilter = "전체" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
+=======
+type Role = "mentor" | "mentee";
+type WeekFilter = "전체" | "1주차" | "2주차" | "3주차" | "4주차";
+>>>>>>> 5b3b8ef2fcef7d8e383fd494e05deb06337ffdb9
 
 type Task = {
   id: string;
