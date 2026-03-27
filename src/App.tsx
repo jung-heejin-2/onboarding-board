@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
 
 type WeekFilter = "전체" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
-=======
-type Role = "mentor" | "mentee";
-type WeekFilter = "전체" | "1주차" | "2주차" | "3주차" | "4주차";
->>>>>>> 5b3b8ef2fcef7d8e383fd494e05deb06337ffdb9
 
 type Task = {
   id: string;
@@ -136,13 +131,9 @@ function createEmpty(): CheckItem {
 }
 
 function parseSavedState(raw: string | null): CheckState {
-  if (!raw) {
-    return {};
-  }
-
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(raw) as CheckState;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return JSON.parse(raw);
   } catch {
     return {};
   }
@@ -150,18 +141,12 @@ function parseSavedState(raw: string | null): CheckState {
 
 export default function App() {
   const [selectedWeek, setSelectedWeek] = useState<WeekFilter>("전체");
-  const [state, setState] = useState<CheckState>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
-    return parseSavedState(window.localStorage.getItem(STORAGE_KEY));
-  });
+  const [state, setState] = useState<CheckState>(() =>
+    parseSavedState(localStorage.getItem(STORAGE_KEY))
+  );
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
   const filtered = useMemo(() => {
@@ -175,40 +160,35 @@ export default function App() {
     0
   );
   const done = Object.values(state).filter((s) => s.checked).length;
-  const percent = totalTasks === 0 ? 0 : Math.round((done / totalTasks) * 100);
+  const percent = Math.round((done / totalTasks) * 100);
 
-  const selectedWeeks = selectedWeek === "전체" ? weeks : weeks.filter((w) => w.title === selectedWeek);
+  const selectedWeeks = selectedWeek === "전체" ? weeks : filtered;
   const selectedTotal = selectedWeeks.reduce(
     (acc, w) => acc + w.groups.reduce((sum, g) => sum + g.items.length, 0),
     0
   );
-  const selectedDone = selectedWeeks.reduce((acc, w) => {
-    return (
+  const selectedDone = selectedWeeks.reduce(
+    (acc, w) =>
       acc +
-      w.groups.reduce((sum, g) => {
-        return sum + g.items.filter((item) => state[item.id]?.checked).length;
-      }, 0)
-    );
-  }, 0);
-  const selectedPercent = selectedTotal === 0 ? 0 : Math.round((selectedDone / selectedTotal) * 100);
+      w.groups.reduce(
+        (sum, g) => sum + g.items.filter((i) => state[i.id]?.checked).length,
+        0
+      ),
+    0
+  );
+  const selectedPercent = Math.round((selectedDone / selectedTotal) * 100);
 
   const toggle = (id: string) => {
     setState((prev) => {
       const cur = prev[id] ?? createEmpty();
-      return {
-        ...prev,
-        [id]: { ...cur, checked: !cur.checked },
-      };
+      return { ...prev, [id]: { ...cur, checked: !cur.checked } };
     });
   };
 
   const updateComment = (id: string, value: string) => {
     setState((prev) => {
       const cur = prev[id] ?? createEmpty();
-      return {
-        ...prev,
-        [id]: { ...cur, comment: value },
-      };
+      return { ...prev, [id]: { ...cur, comment: value } };
     });
   };
 
@@ -220,21 +200,16 @@ export default function App() {
             EPIS 가디언즈
             <span className="block text-emerald-600">ON Board</span>
           </h1>
-          <p className="mt-2 whitespace-pre-line text-sm text-gray-600">
-            EPIS 가디언즈 멘토링을 돕는 보조 체크리스트 도구입니다.
-            {"\n"}
-            멘토링 진행 사항을 체크하고 효율적으로 교육 일정을 관리해보세요.
-          </p>
 
           <div className="mt-4 space-y-4">
             <div>
-              <div className="mb-1 flex justify-between text-sm">
+              <div className="flex justify-between text-sm">
                 <span>전체 진행률</span>
                 <span>{percent}%</span>
               </div>
-              <div className="h-2 rounded-full bg-gray-200">
+              <div className="h-2 bg-gray-200 rounded-full">
                 <div
-                  className="h-full rounded-full bg-emerald-500"
+                  className="h-full bg-emerald-500 rounded-full"
                   style={{ width: `${percent}%` }}
                 />
               </div>
@@ -242,13 +217,13 @@ export default function App() {
 
             {selectedWeek !== "전체" && (
               <div>
-                <div className="mb-1 flex justify-between text-sm">
+                <div className="flex justify-between text-sm">
                   <span>{selectedWeek} 진행률</span>
                   <span>{selectedPercent}%</span>
                 </div>
-                <div className="h-2 rounded-full bg-gray-200">
+                <div className="h-2 bg-gray-200 rounded-full">
                   <div
-                    className="h-full rounded-full bg-cyan-500"
+                    className="h-full bg-cyan-500 rounded-full"
                     style={{ width: `${selectedPercent}%` }}
                   />
                 </div>
@@ -257,81 +232,56 @@ export default function App() {
           </div>
         </div>
 
-        <div className="mb-6 flex flex-wrap gap-2">
-          {(["전체", "1회차", "2회차", "3회차", "4회차", "5회차", "6회차"] as WeekFilter[]).map((w) => (
-            <button
-              key={w}
-              onClick={() => setSelectedWeek(w)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                selectedWeek === w
-                  ? "bg-emerald-600 text-white"
-                  : "border border-gray-200 bg-white"
+        <div className="mb-6 flex gap-2 flex-wrap">
+          {(["전체","1회차","2회차","3회차","4회차","5회차","6회차"] as WeekFilter[]).map(w => (
+            <button key={w} onClick={()=>setSelectedWeek(w)}
+              className={`px-4 py-2 rounded-full text-sm ${
+                selectedWeek===w?"bg-emerald-600 text-white":"bg-white border"
               }`}
-            >
-              {w}
-            </button>
+            >{w}</button>
           ))}
         </div>
 
-        <div className="grid gap-5">
-          {filtered.map((week) => (
-            <div key={week.title} className="rounded-3xl bg-white p-5 shadow">
-              <div className="mb-4">
-                <h2 className="text-xl font-bold">{week.title}</h2>
-                <p className="text-sm text-gray-500">{week.subtitle}</p>
-              </div>
+        {filtered.map(week => (
+          <div key={week.title} className="bg-white p-5 rounded-3xl shadow mb-5">
+            <h2 className="font-bold">{week.title}</h2>
 
-              {week.groups.map((group) => (
-                <div key={group.groupTitle} className="mb-4">
-                  <div className="mb-2 rounded-xl bg-gray-50 px-4 py-2 font-semibold">
-                    {group.groupTitle}
-                  </div>
+            {week.groups.map(group=>(
+              <div key={group.groupTitle} className="mt-3">
+                <div className="font-semibold">{group.groupTitle}</div>
 
-                  {group.items.map((item) => {
-                    const checked = state[item.id]?.checked ?? false;
-                    const comment = state[item.id]?.comment ?? "";
+                {group.items.map(item=>{
+                  const checked = state[item.id]?.checked ?? false;
+                  const comment = state[item.id]?.comment ?? "";
 
-                    return (
-                      <div key={item.id} className="mb-3">
-                        <div
-                          className={`flex items-center justify-between rounded-xl border p-3 ${
-                            checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
+                  return (
+                    <div key={item.id} className="mt-2">
+                      <div className="flex justify-between p-3 border rounded-xl">
+                        <span>{item.label}</span>
+
+                        <button onClick={()=>toggle(item.id)}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+                            checked?"bg-emerald-500 text-white":"bg-gray-200"
                           }`}
                         >
-                          <span className="text-sm">{item.label}</span>
-                          <button
-                            type="button"
-                            onClick={() => toggle(item.id)}
-                            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                              checked
-                                ? "bg-emerald-500 text-white"
-                                : "bg-gray-200 text-gray-700"
-                            }`}
-                            aria-label={`${item.label} 학습완료 토글`}
-                          >
-                            <span
-                              className={`h-3 w-3 rounded-full ${
-                                checked ? "bg-white" : "bg-gray-400"
-                              }`}
-                            />
-                            학습완료
-                          </button>
-                        </div>
-
-                        <textarea
-                          value={comment}
-                          onChange={(e) => updateComment(item.id, e.target.value)}
-                          placeholder="멘토링 내용을 메모해보세요."
-                          className="mt-2 w-full rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-sm focus:border-cyan-400 focus:outline-none"
-                        />
+                          <span className={`w-3 h-3 rounded-full ${checked?"bg-white":"bg-gray-400"}`} />
+                          학습완료
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+
+                      <textarea
+                        value={comment}
+                        onChange={e=>updateComment(item.id,e.target.value)}
+                        placeholder="멘토링 내용을 메모해보세요."
+                        className="w-full mt-2 p-2 rounded-xl bg-cyan-50 border"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
