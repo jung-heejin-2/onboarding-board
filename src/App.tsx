@@ -84,7 +84,7 @@ const weeks: Week[] = [
         items: [
           { id: "w2-1-1", label: "사업지침 학습" },
           { id: "w2-1-2", label: "기본계획 이해" },
-          { id: "w2-1-3", label: "결과보고 분석" },
+          { id: "w2-1-3", label: "전년도 결과보고 분석" },
         ],
       },
     ],
@@ -131,9 +131,9 @@ const weeks: Week[] = [
         id: "g5-1",
         groupTitle: "5. 제안평가 운영",
         items: [
-          { id: "w5-1-1", label: "평가 계획 수립" },
-          { id: "w5-1-2", label: "평가 운영" },
-          { id: "w5-1-3", label: "결과 정리" },
+          { id: "w5-1-1", label: "제안평가 계획 수립" },
+          { id: "w5-1-2", label: "제안평가 준비 및 운영" },
+          { id: "w5-1-3", label: "점수산출 및 결과보고" },
         ],
       },
     ],
@@ -148,8 +148,8 @@ const weeks: Week[] = [
         items: [
           {
             id: "w6-1-1",
-            label: "이해관계자 소통 노하우",
-            description: "현장점검, 현장간담회등을 위한 노하우",
+            label: "이해관계자 소통",
+            description: "현장점검, 현장간담회 등을 위한 노하우",
           },
           {
             id: "w6-1-2",
