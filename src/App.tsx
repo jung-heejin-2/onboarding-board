@@ -53,7 +53,7 @@ const weeks: Week[] = [
           { id: "w1-1-2", label: "실 운영수칙 이해" },
           { id: "w1-1-3", label: "이해관계자 파악" },
           { id: "w1-1-4", label: "전화응대법 숙지" },
-          { id: "w1-1-5", label: "이메일/쪽지 발신 방법" },
+          { id: "w1-1-5", label: "이메일/쪽지 발신" },
         ],
       },
       {
@@ -84,7 +84,7 @@ const weeks: Week[] = [
         items: [
           { id: "w2-1-1", label: "사업지침 학습" },
           { id: "w2-1-2", label: "기본계획 이해" },
-          { id: "w2-1-3", label: "전년도 결과보고 분석" },
+          { id: "w2-1-3", label: "결과보고 분석" },
         ],
       },
     ],
@@ -132,7 +132,7 @@ const weeks: Week[] = [
         groupTitle: "5. 제안평가 운영",
         items: [
           { id: "w5-1-1", label: "제안평가 계획 수립" },
-          { id: "w5-1-2", label: "제안평가 준비 및 운영" },
+          { id: "w5-1-2", label: "제안평가 준비/운영" },
           { id: "w5-1-3", label: "점수산출 및 결과보고" },
         ],
       },
@@ -285,8 +285,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-stretch justify-between gap-6 rounded-3xl bg-white p-8 shadow-xl md:p-10">
-          <div className="flex-1">
+        <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-xl sm:gap-6 md:flex-row md:items-stretch md:justify-between md:p-10">
+          <div className="flex-1 min-w-0">
             <h1 className="text-4xl font-bold md:text-5xl">
               EPIS 가디언즈
               <span className="block text-emerald-600">ON Board</span>
@@ -298,7 +298,7 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex w-full max-w-[360px] basis-1/2 flex-col justify-center rounded-2xl bg-black p-6 text-center text-white">
+          <div className="w-full rounded-2xl bg-black p-5 text-center text-white sm:p-6 md:max-w-[360px] md:basis-1/2 md:self-stretch">
             <div className="mb-3 text-left text-lg font-bold">📊 멘토링 진행률</div>
             <div className="text-xs opacity-80">전체</div>
             <div className="mb-2 text-xl font-bold">{percent}%</div>
