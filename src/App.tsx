@@ -83,8 +83,8 @@ const weeks: Week[] = [
         groupTitle: "2. 담당업무 이해",
         items: [
           { id: "w2-1-1", label: "사업지침 학습" },
-          { id: "w2-1-2", label: "기본계획 이해" },
-          { id: "w2-1-3", label: "결과보고 분석" },
+          { id: "w2-1-2", label: "기본계획 및 세부계획 이해" },
+          { id: "w2-1-3", label: "전년도 결과보고 확인" },
         ],
       },
     ],
@@ -98,7 +98,7 @@ const weeks: Week[] = [
         groupTitle: "3. 회의 추진 방법",
         items: [
           { id: "w3-1-1", label: "회의 계획 수립" },
-          { id: "w3-1-2", label: "회의 운영" },
+          { id: "w3-1-2", label: "회의 준비 및 운영" },
           { id: "w3-1-3", label: "결과보고 작성" },
         ],
       },
@@ -132,7 +132,7 @@ const weeks: Week[] = [
         groupTitle: "5. 제안평가 운영",
         items: [
           { id: "w5-1-1", label: "제안평가 계획 수립" },
-          { id: "w5-1-2", label: "제안평가 준비/운영" },
+          { id: "w5-1-2", label: "제안평가 준비 및 운영" },
           { id: "w5-1-3", label: "점수산출 및 결과보고" },
         ],
       },
@@ -190,6 +190,11 @@ export const testCases = [
     name: "description remains optional",
     input: weeks[0].groups[0].items[0].description ?? "",
     expected: "",
+  },
+  {
+    name: "editable title is preserved in merge order",
+    input: { ...(parseSavedState<LabelState>('{"a":"A"}') as LabelState), b: "B" },
+    expected: { a: "A", b: "B" },
   },
 ];
 
@@ -286,7 +291,7 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-xl sm:gap-6 md:flex-row md:items-stretch md:justify-between md:p-10">
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-4xl font-bold md:text-5xl">
               EPIS 가디언즈
               <span className="block text-emerald-600">ON Board</span>
@@ -363,7 +368,7 @@ export default function App() {
                             : { type: "group", id: group.id }
                         )
                       }
-                      className="rounded-full border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700"
+                      className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
                     >
                       편집
                     </button>
@@ -374,72 +379,73 @@ export default function App() {
                     const comment = state[item.id]?.comment ?? "";
                     const currentLabel = editableLabels[item.id] ?? item.label;
                     const currentDescription = editableDescriptions[item.id] ?? item.description ?? "";
+                    const isEditingItem = editingField?.type === "item" && editingField.id === item.id;
 
                     return (
                       <div key={item.id} className="mt-2">
                         <div
-                          className={`flex justify-between rounded-xl border p-3 ${
+                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
                             checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
                           }`}
+                          onClick={() => toggle(item.id)}
                         >
-                          <div className="flex-1 pr-3">
-                            {editingField?.type === "item" && editingField.id === item.id ? (
-                              <div className="space-y-2">
-                                <input
-                                  value={currentLabel}
-                                  onChange={(e) => updateLabel(item.id, e.target.value)}
-                                  className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
-                                  placeholder="제목을 입력하세요"
-                                />
-                                <textarea
-                                  value={currentDescription}
-                                  onChange={(e) => updateDescription(item.id, e.target.value)}
-                                  className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
-                                  placeholder="설명을 입력하세요"
-                                  rows={2}
-                                />
-                                <div className="flex justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingField(null)}
-                                    className="rounded-full bg-emerald-600 px-3 py-1 text-xs text-white"
-                                  >
-                                    저장
-                                  </button>
+                          <div className="flex flex-1 items-start gap-3 pr-3">
+                            <div
+                              className={`mt-1 flex h-4 w-4 items-center justify-center rounded-full border ${
+                                checked ? "border-emerald-500 bg-emerald-500" : "border-gray-400"
+                              }`}
+                            >
+                              {checked && <div className="h-2 w-2 rounded-full bg-white" />}
+                            </div>
+
+                            <div className="flex-1">
+                              {isEditingItem ? (
+                                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    value={currentLabel}
+                                    onChange={(e) => updateLabel(item.id, e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
+                                    placeholder="제목을 입력하세요"
+                                  />
+                                  <textarea
+                                    value={currentDescription}
+                                    onChange={(e) => updateDescription(item.id, e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
+                                    placeholder="설명을 입력하세요"
+                                    rows={2}
+                                  />
+                                  <div className="flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingField(null)}
+                                      className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white"
+                                    >
+                                      저장
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <>
-                                <div>{currentLabel}</div>
-                                {currentDescription && <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>}
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <div>{currentLabel}</div>
+                                  {currentDescription && (
+                                    <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="shrink-0 flex items-start gap-2">
+                          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() =>
                                 setEditingField(
-                                  editingField?.type === "item" && editingField.id === item.id
-                                    ? null
-                                    : { type: "item", id: item.id }
+                                  isEditingItem ? null : { type: "item", id: item.id }
                                 )
                               }
-                              className="rounded-full border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700"
+                              className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
                             >
                               편집
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => toggle(item.id)}
-                              className={`flex items-center gap-2 rounded-full px-3 py-1 ${
-                                checked ? "bg-emerald-500 text-white" : "bg-gray-200"
-                              }`}
-                            >
-                              <span className={`h-3 w-3 rounded-full ${checked ? "bg-white" : "bg-gray-400"}`} />
-                              완료
                             </button>
                           </div>
                         </div>
