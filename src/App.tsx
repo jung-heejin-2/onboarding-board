@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-type WeekFilter = "전체" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
+type WeekFilter = "전체" | "DAY1" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
 
 type Task = {
   id: string;
@@ -35,12 +35,53 @@ type EditingField =
   | { type: "group"; id: string }
   | null;
 
-const STORAGE_KEY = "onboarding-on-board-state-v7";
-const LABEL_STORAGE_KEY = "onboarding-on-board-labels-v2";
-const DESCRIPTION_STORAGE_KEY = "onboarding-on-board-descriptions-v1";
-const GROUP_TITLE_STORAGE_KEY = "onboarding-on-board-group-titles-v1";
+const STORAGE_KEY = "onboarding-on-board-state-v8";
+const LABEL_STORAGE_KEY = "onboarding-on-board-labels-v3";
+const DESCRIPTION_STORAGE_KEY = "onboarding-on-board-descriptions-v2";
+const GROUP_TITLE_STORAGE_KEY = "onboarding-on-board-group-titles-v2";
 
 const weeks: Week[] = [
+  {
+    title: "DAY1",
+    subtitle: "출근 첫날 체크리스트",
+    groups: [
+      {
+        id: "d1-1",
+        groupTitle: "Ⅰ. 기본 목록",
+        items: [
+          { id: "d1-1-1", label: "PC 초기 설정 - Windows 비밀번호 변경" },
+          { id: "d1-1-2", label: "PC 이름 설정" },
+          { id: "d1-1-3", label: "부서원 연락망 확보" },
+          { id: "d1-1-4", label: "직원 전화번호부 안내 확인" },
+          { id: "d1-1-5", label: "규정집 위치 안내 확인" },
+        ],
+      },
+      {
+        id: "d1-2",
+        groupTitle: "Ⅱ. 내부망",
+        items: [
+          { id: "d1-2-1", label: "그룹웨어 로그인 (SSO)" },
+          { id: "d1-2-2", label: "메신저 설치" },
+          { id: "d1-2-3", label: "내부망 파일전송시스템 설치" },
+          { id: "d1-2-4", label: "부서 공용폴더 접속" },
+          {
+            id: "d1-2-5",
+            label: "프린터 및 스캔 연결",
+            description: "Box Operator 설치 및 스캔방법 안내",
+          },
+        ],
+      },
+      {
+        id: "d1-3",
+        groupTitle: "Ⅲ. 외부망",
+        items: [
+          { id: "d1-3-1", label: "VM FORT 설치" },
+          { id: "d1-3-2", label: "외부망 파일전송시스템 설치" },
+          { id: "d1-3-3", label: "메일 OTP 등록" },
+        ],
+      },
+    ],
+  },
   {
     title: "1회차",
     subtitle: "배치부서 이해",
@@ -50,10 +91,10 @@ const weeks: Week[] = [
         groupTitle: "1-1. 배치부서 이해",
         items: [
           { id: "w1-1-1", label: "실 주요업무 이해" },
-          { id: "w1-1-2", label: "실 운영수칙 이해" },
-          { id: "w1-1-3", label: "이해관계자 파악" },
+          { id: "w1-1-2", label: "실 운영수칙 및 준수사항 이해" },
+          { id: "w1-1-3", label: "업무 이해관계자(농식품부, 관련 기관, 단체 등) 파악" },
           { id: "w1-1-4", label: "전화응대법 숙지" },
-          { id: "w1-1-5", label: "이메일/쪽지 발신" },
+          { id: "w1-1-5", label: "이메일/쪽지 작성법 학습" },
         ],
       },
       {
@@ -84,7 +125,7 @@ const weeks: Week[] = [
         items: [
           { id: "w2-1-1", label: "사업지침 학습" },
           { id: "w2-1-2", label: "기본계획 및 세부계획 이해" },
-          { id: "w2-1-3", label: "전년도 결과보고 확인" },
+          { id: "w2-1-3", label: "전년도 결과보고 분석" },
         ],
       },
     ],
@@ -148,12 +189,12 @@ const weeks: Week[] = [
         items: [
           {
             id: "w6-1-1",
-            label: "이해관계자 소통",
-            description: "현장점검, 현장간담회 등을 위한 노하우",
+            label: "이해관계자 소통 노하우 전수",
+            description: "현장점검, 현장간담회 등 운영 방법",
           },
           {
             id: "w6-1-2",
-            label: "사업 점검 프로세스",
+            label: "사업 점검 방법 습득",
             description: "사업 점검 계획 수립, 준비 및 운영, 결과보고 방법",
           },
         ],
@@ -182,13 +223,18 @@ export const testCases = [
     expected: {},
   },
   {
+    name: "day1 exists in week filter data",
+    input: weeks[0].title,
+    expected: "DAY1",
+  },
+  {
     name: "group ids exist",
-    input: weeks[0].groups[0].id,
+    input: weeks[1].groups[0].id,
     expected: "g1-1",
   },
   {
     name: "description remains optional",
-    input: weeks[0].groups[0].items[0].description ?? "",
+    input: weeks[1].groups[0].items[0].description ?? "",
     expected: "",
   },
   {
@@ -323,7 +369,7 @@ export default function App() {
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
-          {(["전체", "1회차", "2회차", "3회차", "4회차", "5회차", "6회차"] as WeekFilter[]).map((w) => (
+          {(["전체", "DAY1", "1회차", "2회차", "3회차", "4회차", "5회차", "6회차"] as WeekFilter[]).map((w) => (
             <button
               key={w}
               onClick={() => setSelectedWeek(w)}
@@ -336,134 +382,153 @@ export default function App() {
           ))}
         </div>
 
-        {filtered.map((week) => (
-          <div key={week.title} className="mb-5 rounded-3xl bg-white p-5 shadow">
-            <h2 className="mb-2 font-bold">{week.title}</h2>
+        {filtered.map((week) => {
+          const isDay1 = week.title === "DAY1";
+          const weekTasks = week.groups.flatMap((g) => g.items);
+          const weekDone = weekTasks.length > 0 && weekTasks.every((item) => state[item.id]?.checked);
 
-            {week.groups.map((group) => {
-              const currentGroupTitle = editableGroupTitles[group.id] ?? group.groupTitle;
+          return (
+            <div
+              key={week.title}
+              className="mb-5 rounded-3xl bg-white p-5 shadow"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <h2 className="font-bold">{week.title}</h2>
+                {isDay1 && (
+                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">
+                    첫날
+                  </span>
+                )}
+                {weekDone && (
+                  <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs text-black">
+                    🎉 {isDay1 ? "첫날 완료" : `${week.title} 완료`}
+                  </span>
+                )}
+              </div>
 
-              return (
-                <div key={group.id} className="mt-3">
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex-1 font-semibold">
-                      {editingField?.type === "group" && editingField.id === group.id ? (
-                        <textarea
-                          value={currentGroupTitle}
-                          onChange={(e) => updateGroupTitle(group.id, e.target.value)}
-                          onBlur={() => setEditingField(null)}
-                          autoFocus
-                          className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-semibold focus:border-emerald-400 focus:outline-none"
-                        />
-                      ) : (
-                        <div>{currentGroupTitle}</div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingField(
-                          editingField?.type === "group" && editingField.id === group.id
-                            ? null
-                            : { type: "group", id: group.id }
-                        )
-                      }
-                      className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
-                    >
-                      편집
-                    </button>
-                  </div>
+              {week.groups.map((group) => {
+                const currentGroupTitle = editableGroupTitles[group.id] ?? group.groupTitle;
 
-                  {group.items.map((item) => {
-                    const checked = state[item.id]?.checked ?? false;
-                    const comment = state[item.id]?.comment ?? "";
-                    const currentLabel = editableLabels[item.id] ?? item.label;
-                    const currentDescription = editableDescriptions[item.id] ?? item.description ?? "";
-                    const isEditingItem = editingField?.type === "item" && editingField.id === item.id;
-
-                    return (
-                      <div key={item.id} className="mt-2">
-                        <div
-                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
-                            checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
-                          }`}
-                          onClick={() => toggle(item.id)}
-                        >
-                          <div className="flex flex-1 items-start gap-3 pr-3">
-                            <div
-                              className={`mt-1 flex h-4 w-4 items-center justify-center rounded-full border ${
-                                checked ? "border-emerald-500 bg-emerald-500" : "border-gray-400"
-                              }`}
-                            >
-                              {checked && <div className="h-2 w-2 rounded-full bg-white" />}
-                            </div>
-
-                            <div className="flex-1">
-                              {isEditingItem ? (
-                                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    value={currentLabel}
-                                    onChange={(e) => updateLabel(item.id, e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
-                                    placeholder="제목을 입력하세요"
-                                  />
-                                  <textarea
-                                    value={currentDescription}
-                                    onChange={(e) => updateDescription(item.id, e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
-                                    placeholder="설명을 입력하세요"
-                                    rows={2}
-                                  />
-                                  <div className="flex justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingField(null)}
-                                      className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white"
-                                    >
-                                      저장
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div>{currentLabel}</div>
-                                  {currentDescription && (
-                                    <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditingField(
-                                  isEditingItem ? null : { type: "item", id: item.id }
-                                )
-                              }
-                              className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
-                            >
-                              편집
-                            </button>
-                          </div>
-                        </div>
-
-                        <textarea
-                          value={comment}
-                          onChange={(e) => updateComment(item.id, e.target.value)}
-                          placeholder="멘토링 내용을 메모해보세요."
-                          className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 p-2 focus:border-gray-300 focus:outline-none"
-                        />
+                return (
+                  <div key={group.id} className="mt-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="flex-1 font-semibold">
+                        {editingField?.type === "group" && editingField.id === group.id ? (
+                          <textarea
+                            value={currentGroupTitle}
+                            onChange={(e) => updateGroupTitle(group.id, e.target.value)}
+                            onBlur={() => setEditingField(null)}
+                            autoFocus
+                            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-semibold focus:border-emerald-400 focus:outline-none"
+                          />
+                        ) : (
+                          <div>{currentGroupTitle}</div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingField(
+                            editingField?.type === "group" && editingField.id === group.id
+                              ? null
+                              : { type: "group", id: group.id }
+                          )
+                        }
+                        className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
+                      >
+                        편집
+                      </button>
+                    </div>
+
+                    {group.items.map((item) => {
+                      const checked = state[item.id]?.checked ?? false;
+                      const comment = state[item.id]?.comment ?? "";
+                      const currentLabel = editableLabels[item.id] ?? item.label;
+                      const currentDescription = editableDescriptions[item.id] ?? item.description ?? "";
+                      const isEditingItem = editingField?.type === "item" && editingField.id === item.id;
+
+                      return (
+                        <div key={item.id} className="mt-2">
+                          <div
+                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
+                              checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
+                            }`}
+                            onClick={() => toggle(item.id)}
+                          >
+                            <div className="flex flex-1 items-start gap-3 pr-3">
+                              <div
+                                className={`mt-1 flex h-4 w-4 items-center justify-center rounded-full border ${
+                                  checked ? "border-emerald-500 bg-emerald-500" : "border-gray-400"
+                                }`}
+                              >
+                                {checked && <div className="h-2 w-2 rounded-full bg-white" />}
+                              </div>
+
+                              <div className="flex-1">
+                                {isEditingItem ? (
+                                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      value={currentLabel}
+                                      onChange={(e) => updateLabel(item.id, e.target.value)}
+                                      className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
+                                      placeholder="제목을 입력하세요"
+                                    />
+                                    <textarea
+                                      value={currentDescription}
+                                      onChange={(e) => updateDescription(item.id, e.target.value)}
+                                      className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
+                                      placeholder="설명을 입력하세요"
+                                      rows={2}
+                                    />
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingField(null)}
+                                        className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white"
+                                      >
+                                        저장
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div>{currentLabel}</div>
+                                    {currentDescription && (
+                                      <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingField(isEditingItem ? null : { type: "item", id: item.id })
+                                }
+                                className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
+                              >
+                                편집
+                              </button>
+                            </div>
+                          </div>
+
+                          <textarea
+                            value={comment}
+                            onChange={(e) => updateComment(item.id, e.target.value)}
+                            placeholder="멘토링 내용을 메모해보세요."
+                            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 p-2 focus:border-gray-300 focus:outline-none"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
