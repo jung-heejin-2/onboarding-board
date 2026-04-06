@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { supabase } from "../lib/supabase";
 
 type WeekFilter = "전체" | "DAY1" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
@@ -262,6 +264,7 @@ export default function App() {
 
   const hasLoadedInitialDataRef = useRef(false);
   const isApplyingCloudDataRef = useRef(false);
+  const pdfRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const savedId = getSavedEmployeeId();
@@ -395,6 +398,52 @@ export default function App() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!pdfRef.current) return;
+
+    try {
+      const canvas = await html2canvas(pdfRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.scrollWidth,
+        windowHeight: document.documentElement.scrollHeight,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+
+      const imgWidth = usableWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+      heightLeft -= usableHeight;
+
+      while (heightLeft > 0) {
+        position = margin - (imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+        heightLeft -= usableHeight;
+      }
+
+      const fileWeek = selectedWeek === "전체" ? "전체" : selectedWeek;
+      pdf.save(`EPIS_가디언즈_ONBoard_${fileWeek}.pdf`);
+    } catch (error) {
+      console.error("PDF 저장 오류:", error);
+      alert("PDF 저장 중 오류가 발생했습니다.");
+    }
+  };
+
   function getWeekPayload(weekTitle: string) {
     const week = weeks.find((w) => w.title === weekTitle);
 
@@ -520,222 +569,231 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-xl sm:gap-6 md:flex-row md:items-stretch md:justify-between md:p-10">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-4xl font-bold md:text-5xl">
-              EPIS 가디언즈
-              <span className="block text-emerald-600">ON Board</span>
-            </h1>
-            <p className="mt-3 text-base leading-6 text-gray-600">
-              회차별 추천 체크리스트를 바탕으로
-              <br />
-              체계적으로 학습 내용을 기록해보세요.
-            </p>
+        <div ref={pdfRef}>
+          <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-xl sm:gap-6 md:flex-row md:items-stretch md:justify-between md:p-10">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-4xl font-bold md:text-5xl">
+                EPIS 가디언즈
+                <span className="block text-emerald-600">ON Board</span>
+              </h1>
+              <p className="mt-3 text-base leading-6 text-gray-600">
+                회차별 추천 체크리스트를 바탕으로
+                <br />
+                체계적으로 학습 내용을 기록해보세요.
+              </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-              <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
-                사내 아이디: {employeeId}
-              </span>
-              <button
-                type="button"
-                onClick={handleResetEmployee}
-                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-gray-700"
-              >
-                아이디 변경
-              </button>
-              {isLoadingCloud && (
-                <span className="rounded-full bg-cyan-100 px-3 py-1 font-medium text-cyan-700">
-                  불러오는 중...
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                  사내 아이디: {employeeId}
                 </span>
-              )}
-              {!!lastSavedAt && !isLoadingCloud && (
-                <span className="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
-                  저장됨 {lastSavedAt}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="w-full rounded-2xl bg-black p-5 text-center text-white sm:p-6 md:max-w-[360px] md:basis-1/2 md:self-stretch">
-            <div className="mb-3 text-left text-lg font-bold">📊 멘토링 진행률</div>
-            <div className="text-xs opacity-80">전체</div>
-            <div className="mb-2 text-xl font-bold">{percent}%</div>
-            <div className="mb-3 h-2 w-full rounded-full bg-gray-700">
-              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percent}%` }} />
-            </div>
-            {selectedWeek !== "전체" && (
-              <>
-                <div className="text-xs opacity-80">{selectedWeek}</div>
-                <div className="mb-1 text-sm font-semibold">{selectedPercent}%</div>
-                <div className="h-2 w-full rounded-full bg-gray-700">
-                  <div className="h-full rounded-full bg-cyan-400" style={{ width: `${selectedPercent}%` }} />
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="mb-6 flex flex-wrap gap-2">
-          {(["전체", "DAY1", "1회차", "2회차", "3회차", "4회차", "5회차", "6회차"] as WeekFilter[]).map((w) => (
-            <button
-              key={w}
-              onClick={() => setSelectedWeek(w)}
-              className={`rounded-full px-4 py-2 text-sm ${
-                selectedWeek === w ? "bg-emerald-600 text-white" : "border bg-white"
-              }`}
-            >
-              {w}
-            </button>
-          ))}
-        </div>
-
-        {filtered.map((week) => {
-          const isDay1 = week.title === "DAY1";
-          const weekTasks = week.groups.flatMap((g) => g.items);
-          const weekDone = weekTasks.length > 0 && weekTasks.every((item) => state[item.id]?.checked);
-
-          return (
-            <div
-              key={week.title}
-              className="mb-5 rounded-3xl bg-white p-5 shadow"
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <h2 className="font-bold">{week.title}</h2>
-                {isDay1 && (
-                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">
-                    첫날
+                <button
+                  type="button"
+                  onClick={handleResetEmployee}
+                  className="rounded-full border border-gray-300 bg-white px-3 py-1 text-gray-700"
+                >
+                  아이디 변경
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 font-medium text-emerald-700"
+                >
+                  PDF 저장
+                </button>
+                {isLoadingCloud && (
+                  <span className="rounded-full bg-cyan-100 px-3 py-1 font-medium text-cyan-700">
+                    불러오는 중...
                   </span>
                 )}
-                {weekDone && (
-                  <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs text-black">
-                    🎉 {isDay1 ? "첫날 완료" : `${week.title} 완료`}
+                {!!lastSavedAt && !isLoadingCloud && (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
+                    저장됨 {lastSavedAt}
                   </span>
                 )}
               </div>
-
-              {week.groups.map((group) => {
-                const currentGroupTitle = editableGroupTitles[group.id] ?? group.groupTitle;
-
-                return (
-                  <div key={group.id} className="mt-3">
-                    <div className="mb-2 flex items-center gap-2">
-                      <div className="flex-1 font-semibold">
-                        {editingField?.type === "group" && editingField.id === group.id ? (
-                          <textarea
-                            value={currentGroupTitle}
-                            onChange={(e) => updateGroupTitle(group.id, e.target.value)}
-                            onBlur={() => setEditingField(null)}
-                            autoFocus
-                            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-semibold focus:border-emerald-400 focus:outline-none"
-                          />
-                        ) : (
-                          <div>{currentGroupTitle}</div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditingField(
-                            editingField?.type === "group" && editingField.id === group.id
-                              ? null
-                              : { type: "group", id: group.id }
-                          )
-                        }
-                        className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
-                      >
-                        편집
-                      </button>
-                    </div>
-
-                    {group.items.map((item) => {
-                      const checked = state[item.id]?.checked ?? false;
-                      const comment = state[item.id]?.comment ?? "";
-                      const currentLabel = editableLabels[item.id] ?? item.label;
-                      const currentDescription = editableDescriptions[item.id] ?? item.description ?? "";
-                      const isEditingItem = editingField?.type === "item" && editingField.id === item.id;
-
-                      return (
-                        <div key={item.id} className="mt-2">
-                          <div
-                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
-                              checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
-                            }`}
-                            onClick={() => toggle(item.id)}
-                          >
-                            <div className="flex flex-1 items-start gap-3 pr-3">
-                              <div
-                                className={`mt-1 flex h-4 w-4 items-center justify-center rounded-full border ${
-                                  checked ? "border-emerald-500 bg-emerald-500" : "border-gray-400"
-                                }`}
-                              >
-                                {checked && <div className="h-2 w-2 rounded-full bg-white" />}
-                              </div>
-
-                              <div className="flex-1">
-                                {isEditingItem ? (
-                                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                                    <input
-                                      value={currentLabel}
-                                      onChange={(e) => updateLabel(item.id, e.target.value)}
-                                      className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
-                                      placeholder="제목을 입력하세요"
-                                    />
-                                    <textarea
-                                      value={currentDescription}
-                                      onChange={(e) => updateDescription(item.id, e.target.value)}
-                                      className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
-                                      placeholder="설명을 입력하세요"
-                                      rows={2}
-                                    />
-                                    <div className="flex justify-end">
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditingField(null)}
-                                        className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white"
-                                      >
-                                        저장
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div>{currentLabel}</div>
-                                    {currentDescription && (
-                                      <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEditingField(isEditingItem ? null : { type: "item", id: item.id })
-                                }
-                                className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
-                              >
-                                편집
-                              </button>
-                            </div>
-                          </div>
-
-                          <textarea
-                            value={comment}
-                            onChange={(e) => updateComment(item.id, e.target.value)}
-                            placeholder="멘토링 내용을 메모해보세요."
-                            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 p-2 focus:border-gray-300 focus:outline-none"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
             </div>
-          );
-        })}
+
+            <div className="w-full rounded-2xl bg-black p-5 text-center text-white sm:p-6 md:max-w-[360px] md:basis-1/2 md:self-stretch">
+              <div className="mb-3 text-left text-lg font-bold">📊 멘토링 진행률</div>
+              <div className="text-xs opacity-80">전체</div>
+              <div className="mb-2 text-xl font-bold">{percent}%</div>
+              <div className="mb-3 h-2 w-full rounded-full bg-gray-700">
+                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percent}%` }} />
+              </div>
+              {selectedWeek !== "전체" && (
+                <>
+                  <div className="text-xs opacity-80">{selectedWeek}</div>
+                  <div className="mb-1 text-sm font-semibold">{selectedPercent}%</div>
+                  <div className="h-2 w-full rounded-full bg-gray-700">
+                    <div className="h-full rounded-full bg-cyan-400" style={{ width: `${selectedPercent}%` }} />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6 flex flex-wrap gap-2">
+            {(["전체", "DAY1", "1회차", "2회차", "3회차", "4회차", "5회차", "6회차"] as WeekFilter[]).map((w) => (
+              <button
+                key={w}
+                onClick={() => setSelectedWeek(w)}
+                className={`rounded-full px-4 py-2 text-sm ${
+                  selectedWeek === w ? "bg-emerald-600 text-white" : "border bg-white"
+                }`}
+              >
+                {w}
+              </button>
+            ))}
+          </div>
+
+          {filtered.map((week) => {
+            const isDay1 = week.title === "DAY1";
+            const weekTasks = week.groups.flatMap((g) => g.items);
+            const weekDone = weekTasks.length > 0 && weekTasks.every((item) => state[item.id]?.checked);
+
+            return (
+              <div
+                key={week.title}
+                className="mb-5 rounded-3xl bg-white p-5 shadow"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <h2 className="font-bold">{week.title}</h2>
+                  {isDay1 && (
+                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">
+                      첫날
+                    </span>
+                  )}
+                  {weekDone && (
+                    <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs text-black">
+                      🎉 {isDay1 ? "첫날 완료" : `${week.title} 완료`}
+                    </span>
+                  )}
+                </div>
+
+                {week.groups.map((group) => {
+                  const currentGroupTitle = editableGroupTitles[group.id] ?? group.groupTitle;
+
+                  return (
+                    <div key={group.id} className="mt-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <div className="flex-1 font-semibold">
+                          {editingField?.type === "group" && editingField.id === group.id ? (
+                            <textarea
+                              value={currentGroupTitle}
+                              onChange={(e) => updateGroupTitle(group.id, e.target.value)}
+                              onBlur={() => setEditingField(null)}
+                              autoFocus
+                              className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-semibold focus:border-emerald-400 focus:outline-none"
+                            />
+                          ) : (
+                            <div>{currentGroupTitle}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingField(
+                              editingField?.type === "group" && editingField.id === group.id
+                                ? null
+                                : { type: "group", id: group.id }
+                            )
+                          }
+                          className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
+                        >
+                          편집
+                        </button>
+                      </div>
+
+                      {group.items.map((item) => {
+                        const checked = state[item.id]?.checked ?? false;
+                        const comment = state[item.id]?.comment ?? "";
+                        const currentLabel = editableLabels[item.id] ?? item.label;
+                        const currentDescription = editableDescriptions[item.id] ?? item.description ?? "";
+                        const isEditingItem = editingField?.type === "item" && editingField.id === item.id;
+
+                        return (
+                          <div key={item.id} className="mt-2">
+                            <div
+                              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
+                                checked ? "border-emerald-200 bg-emerald-50" : "bg-white"
+                              }`}
+                              onClick={() => toggle(item.id)}
+                            >
+                              <div className="flex flex-1 items-start gap-3 pr-3">
+                                <div
+                                  className={`mt-1 flex h-4 w-4 items-center justify-center rounded-full border ${
+                                    checked ? "border-emerald-500 bg-emerald-500" : "border-gray-400"
+                                  }`}
+                                >
+                                  {checked && <div className="h-2 w-2 rounded-full bg-white" />}
+                                </div>
+
+                                <div className="flex-1">
+                                  {isEditingItem ? (
+                                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        value={currentLabel}
+                                        onChange={(e) => updateLabel(item.id, e.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm font-medium focus:border-emerald-400 focus:outline-none"
+                                        placeholder="제목을 입력하세요"
+                                      />
+                                      <textarea
+                                        value={currentDescription}
+                                        onChange={(e) => updateDescription(item.id, e.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-700 focus:border-emerald-400 focus:outline-none"
+                                        placeholder="설명을 입력하세요"
+                                        rows={2}
+                                      />
+                                      <div className="flex justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingField(null)}
+                                          className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white"
+                                        >
+                                          저장
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div>{currentLabel}</div>
+                                      {currentDescription && (
+                                        <div className="mt-1 text-xs text-gray-500">{currentDescription}</div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingField(isEditingItem ? null : { type: "item", id: item.id })
+                                  }
+                                  className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700"
+                                >
+                                  편집
+                                </button>
+                              </div>
+                            </div>
+
+                            <textarea
+                              value={comment}
+                              onChange={(e) => updateComment(item.id, e.target.value)}
+                              placeholder="멘토링 내용을 메모해보세요."
+                              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 p-2 focus:border-gray-300 focus:outline-none"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
