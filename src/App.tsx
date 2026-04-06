@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type WeekFilter = "전체" | "DAY1" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
 
@@ -36,10 +39,6 @@ type EditingField =
   | null;
 
 const EMPLOYEE_ID_STORAGE_KEY = "onboarding-on-board-employee-id";
-const STORAGE_KEY_PREFIX = "onboarding-on-board-state-v8";
-const LABEL_STORAGE_KEY_PREFIX = "onboarding-on-board-labels-v3";
-const DESCRIPTION_STORAGE_KEY_PREFIX = "onboarding-on-board-descriptions-v2";
-const GROUP_TITLE_STORAGE_KEY_PREFIX = "onboarding-on-board-group-titles-v2";
 
 const weeks: Week[] = [
   {
@@ -208,15 +207,6 @@ function createEmpty(): CheckItem {
   return { checked: false, comment: "" };
 }
 
-function parseSavedState<T extends Record<string, string> | CheckState>(raw: string | null): T | {} {
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return {};
-  }
-}
-
 function normalizeEmployeeId(value: string) {
   return value.trim();
 }
@@ -235,18 +225,25 @@ function saveEmployeeId(employeeId: string) {
   window.localStorage.setItem(EMPLOYEE_ID_STORAGE_KEY, normalizeEmployeeId(employeeId));
 }
 
-function getStorageKey(prefix: string, employeeId: string) {
-  return `${prefix}_${normalizeEmployeeId(employeeId)}`;
-}
+function mergeCloudRowsToState(rows: any[]) {
+  const nextState: CheckState = {};
+  const nextLabels: LabelState = {};
+  const nextDescriptions: DescriptionState = {};
+  const nextGroupTitles: GroupTitleState = {};
 
-function loadScopedState<T extends Record<string, string> | CheckState>(
-  prefix: string,
-  employeeId: string
-): T | {} {
-  if (typeof window === "undefined" || !employeeId) return {};
-  return parseSavedState<T>(
-    window.localStorage.getItem(getStorageKey(prefix, employeeId))
-  );
+  for (const row of rows) {
+    Object.assign(nextState, row.checklist_data ?? {});
+    Object.assign(nextLabels, row.label_data ?? {});
+    Object.assign(nextDescriptions, row.description_data ?? {});
+    Object.assign(nextGroupTitles, row.group_title_data ?? {});
+  }
+
+  return {
+    state: nextState,
+    labels: nextLabels,
+    descriptions: nextDescriptions,
+    groupTitles: nextGroupTitles,
+  };
 }
 
 export default function App() {
@@ -254,6 +251,8 @@ export default function App() {
   const [employeeIdInput, setEmployeeIdInput] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [employeeError, setEmployeeError] = useState("");
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string>("");
 
   const [state, setState] = useState<CheckState>({});
   const [editableLabels, setEditableLabels] = useState<LabelState>({});
@@ -261,53 +260,52 @@ export default function App() {
   const [editableGroupTitles, setEditableGroupTitles] = useState<GroupTitleState>({});
   const [editingField, setEditingField] = useState<EditingField>(null);
 
+  const hasLoadedInitialDataRef = useRef(false);
+  const isApplyingCloudDataRef = useRef(false);
+
   useEffect(() => {
     const savedId = getSavedEmployeeId();
     if (!savedId) return;
-
     setEmployeeId(savedId);
     setEmployeeIdInput(savedId);
-    setState(loadScopedState<CheckState>(STORAGE_KEY_PREFIX, savedId) as CheckState);
-    setEditableLabels(loadScopedState<LabelState>(LABEL_STORAGE_KEY_PREFIX, savedId) as LabelState);
-    setEditableDescriptions(
-      loadScopedState<DescriptionState>(DESCRIPTION_STORAGE_KEY_PREFIX, savedId) as DescriptionState
-    );
-    setEditableGroupTitles(
-      loadScopedState<GroupTitleState>(GROUP_TITLE_STORAGE_KEY_PREFIX, savedId) as GroupTitleState
-    );
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !employeeId) return;
-    window.localStorage.setItem(
-      getStorageKey(STORAGE_KEY_PREFIX, employeeId),
-      JSON.stringify(state)
-    );
-  }, [employeeId, state]);
+    if (!employeeId) return;
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !employeeId) return;
-    window.localStorage.setItem(
-      getStorageKey(LABEL_STORAGE_KEY_PREFIX, employeeId),
-      JSON.stringify(editableLabels)
-    );
-  }, [employeeId, editableLabels]);
+    async function loadCloudData() {
+      setIsLoadingCloud(true);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !employeeId) return;
-    window.localStorage.setItem(
-      getStorageKey(DESCRIPTION_STORAGE_KEY_PREFIX, employeeId),
-      JSON.stringify(editableDescriptions)
-    );
-  }, [employeeId, editableDescriptions]);
+      const { data, error } = await supabase
+        .from("onboarding_progress")
+        .select("*")
+        .eq("employee_id", employeeId);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !employeeId) return;
-    window.localStorage.setItem(
-      getStorageKey(GROUP_TITLE_STORAGE_KEY_PREFIX, employeeId),
-      JSON.stringify(editableGroupTitles)
-    );
-  }, [employeeId, editableGroupTitles]);
+      if (error) {
+        console.error("Supabase 불러오기 오류:", error);
+        setIsLoadingCloud(false);
+        hasLoadedInitialDataRef.current = true;
+        return;
+      }
+
+      const merged = mergeCloudRowsToState(data ?? []);
+
+      isApplyingCloudDataRef.current = true;
+      setState(merged.state);
+      setEditableLabels(merged.labels);
+      setEditableDescriptions(merged.descriptions);
+      setEditableGroupTitles(merged.groupTitles);
+
+      hasLoadedInitialDataRef.current = true;
+      setIsLoadingCloud(false);
+
+      setTimeout(() => {
+        isApplyingCloudDataRef.current = false;
+      }, 0);
+    }
+
+    loadCloudData();
+  }, [employeeId]);
 
   const filtered = useMemo(() => {
     return selectedWeek === "전체" ? weeks : weeks.filter((w) => w.title === selectedWeek);
@@ -375,15 +373,8 @@ export default function App() {
     setEmployeeIdInput(normalized);
     setEmployeeError("");
     setEditingField(null);
-
-    setState(loadScopedState<CheckState>(STORAGE_KEY_PREFIX, normalized) as CheckState);
-    setEditableLabels(loadScopedState<LabelState>(LABEL_STORAGE_KEY_PREFIX, normalized) as LabelState);
-    setEditableDescriptions(
-      loadScopedState<DescriptionState>(DESCRIPTION_STORAGE_KEY_PREFIX, normalized) as DescriptionState
-    );
-    setEditableGroupTitles(
-      loadScopedState<GroupTitleState>(GROUP_TITLE_STORAGE_KEY_PREFIX, normalized) as GroupTitleState
-    );
+    setLastSavedAt("");
+    hasLoadedInitialDataRef.current = false;
   };
 
   const handleResetEmployee = () => {
@@ -395,11 +386,90 @@ export default function App() {
     setEditableDescriptions({});
     setEditableGroupTitles({});
     setEditingField(null);
+    setLastSavedAt("");
+    hasLoadedInitialDataRef.current = false;
+    isApplyingCloudDataRef.current = false;
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(EMPLOYEE_ID_STORAGE_KEY);
     }
   };
+
+  function getWeekPayload(weekTitle: string) {
+    const week = weeks.find((w) => w.title === weekTitle);
+
+    if (!week) {
+      return {
+        checklistData: {},
+        labelData: {},
+        descriptionData: {},
+        groupTitleData: {},
+      };
+    }
+
+    const itemIds = week.groups.flatMap((g) => g.items.map((item) => item.id));
+    const groupIds = week.groups.map((g) => g.id);
+
+    const checklistData: CheckState = {};
+    const labelData: LabelState = {};
+    const descriptionData: DescriptionState = {};
+    const groupTitleData: GroupTitleState = {};
+
+    for (const id of itemIds) {
+      if (state[id]) checklistData[id] = state[id];
+      if (editableLabels[id]) labelData[id] = editableLabels[id];
+      if (editableDescriptions[id]) descriptionData[id] = editableDescriptions[id];
+    }
+
+    for (const id of groupIds) {
+      if (editableGroupTitles[id]) groupTitleData[id] = editableGroupTitles[id];
+    }
+
+    return { checklistData, labelData, descriptionData, groupTitleData };
+  }
+
+  useEffect(() => {
+    if (!employeeId) return;
+    if (!hasLoadedInitialDataRef.current) return;
+    if (isApplyingCloudDataRef.current) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        for (const week of weeks) {
+          const { checklistData, labelData, descriptionData, groupTitleData } = getWeekPayload(
+            week.title
+          );
+
+          const { error } = await supabase
+            .from("onboarding_progress")
+            .upsert(
+              {
+                employee_id: employeeId,
+                week: week.title,
+                checklist_data: checklistData,
+                label_data: labelData,
+                description_data: descriptionData,
+                group_title_data: groupTitleData,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "employee_id,week" }
+            );
+
+          if (error) {
+            console.error("Supabase 저장 오류:", error);
+            return;
+          }
+        }
+
+        setLastSavedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }));
+        console.log("Supabase 저장 완료");
+      } catch (error) {
+        console.error("저장 중 예외 발생:", error);
+      }
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [employeeId, state, editableLabels, editableDescriptions, editableGroupTitles]);
 
   if (!employeeId) {
     return (
@@ -413,7 +483,7 @@ export default function App() {
             <p className="mt-3 text-sm leading-6 text-gray-600">
               사내 아이디를 입력하면
               <br />
-              해당 아이디 기준으로 체크리스트가 저장됩니다.
+              클라우드에 체크리스트가 저장됩니다.
             </p>
 
             <div className="mt-6">
@@ -473,6 +543,16 @@ export default function App() {
               >
                 아이디 변경
               </button>
+              {isLoadingCloud && (
+                <span className="rounded-full bg-cyan-100 px-3 py-1 font-medium text-cyan-700">
+                  불러오는 중...
+                </span>
+              )}
+              {!!lastSavedAt && !isLoadingCloud && (
+                <span className="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
+                  저장됨 {lastSavedAt}
+                </span>
+              )}
             </div>
           </div>
 
