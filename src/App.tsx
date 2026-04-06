@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase";
 
 type WeekFilter = "전체" | "DAY1" | "1회차" | "2회차" | "3회차" | "4회차" | "5회차" | "6회차";
 
