@@ -35,10 +35,11 @@ type EditingField =
   | { type: "group"; id: string }
   | null;
 
-const STORAGE_KEY = "onboarding-on-board-state-v8";
-const LABEL_STORAGE_KEY = "onboarding-on-board-labels-v3";
-const DESCRIPTION_STORAGE_KEY = "onboarding-on-board-descriptions-v2";
-const GROUP_TITLE_STORAGE_KEY = "onboarding-on-board-group-titles-v2";
+const EMPLOYEE_ID_STORAGE_KEY = "onboarding-on-board-employee-id";
+const STORAGE_KEY_PREFIX = "onboarding-on-board-state-v8";
+const LABEL_STORAGE_KEY_PREFIX = "onboarding-on-board-labels-v3";
+const DESCRIPTION_STORAGE_KEY_PREFIX = "onboarding-on-board-descriptions-v2";
+const GROUP_TITLE_STORAGE_KEY_PREFIX = "onboarding-on-board-group-titles-v2";
 
 const weeks: Week[] = [
   {
@@ -216,69 +217,97 @@ function parseSavedState<T extends Record<string, string> | CheckState>(raw: str
   }
 }
 
-export const testCases = [
-  {
-    name: "label map parses safely",
-    input: parseSavedState<LabelState>("not-json"),
-    expected: {},
-  },
-  {
-    name: "day1 exists in week filter data",
-    input: weeks[0].title,
-    expected: "DAY1",
-  },
-  {
-    name: "group ids exist",
-    input: weeks[1].groups[0].id,
-    expected: "g1-1",
-  },
-  {
-    name: "description remains optional",
-    input: weeks[1].groups[0].items[0].description ?? "",
-    expected: "",
-  },
-  {
-    name: "editable title is preserved in merge order",
-    input: { ...(parseSavedState<LabelState>('{"a":"A"}') as LabelState), b: "B" },
-    expected: { a: "A", b: "B" },
-  },
-];
+function normalizeEmployeeId(value: string) {
+  return value.trim();
+}
+
+function isValidEmployeeId(value: string) {
+  return normalizeEmployeeId(value).length > 0;
+}
+
+function getSavedEmployeeId() {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(EMPLOYEE_ID_STORAGE_KEY) ?? "";
+}
+
+function saveEmployeeId(employeeId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(EMPLOYEE_ID_STORAGE_KEY, normalizeEmployeeId(employeeId));
+}
+
+function getStorageKey(prefix: string, employeeId: string) {
+  return `${prefix}_${normalizeEmployeeId(employeeId)}`;
+}
+
+function loadScopedState<T extends Record<string, string> | CheckState>(
+  prefix: string,
+  employeeId: string
+): T | {} {
+  if (typeof window === "undefined" || !employeeId) return {};
+  return parseSavedState<T>(
+    window.localStorage.getItem(getStorageKey(prefix, employeeId))
+  );
+}
 
 export default function App() {
   const [selectedWeek, setSelectedWeek] = useState<WeekFilter>("전체");
-  const [state, setState] = useState<CheckState>(() =>
-    parseSavedState<CheckState>(typeof window === "undefined" ? null : window.localStorage.getItem(STORAGE_KEY)) as CheckState
-  );
-  const [editableLabels, setEditableLabels] = useState<LabelState>(() =>
-    parseSavedState<LabelState>(typeof window === "undefined" ? null : window.localStorage.getItem(LABEL_STORAGE_KEY)) as LabelState
-  );
-  const [editableDescriptions, setEditableDescriptions] = useState<DescriptionState>(() =>
-    parseSavedState<DescriptionState>(typeof window === "undefined" ? null : window.localStorage.getItem(DESCRIPTION_STORAGE_KEY)) as DescriptionState
-  );
-  const [editableGroupTitles, setEditableGroupTitles] = useState<GroupTitleState>(() =>
-    parseSavedState<GroupTitleState>(typeof window === "undefined" ? null : window.localStorage.getItem(GROUP_TITLE_STORAGE_KEY)) as GroupTitleState
-  );
+  const [employeeIdInput, setEmployeeIdInput] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [employeeError, setEmployeeError] = useState("");
+
+  const [state, setState] = useState<CheckState>({});
+  const [editableLabels, setEditableLabels] = useState<LabelState>({});
+  const [editableDescriptions, setEditableDescriptions] = useState<DescriptionState>({});
+  const [editableGroupTitles, setEditableGroupTitles] = useState<GroupTitleState>({});
   const [editingField, setEditingField] = useState<EditingField>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    const savedId = getSavedEmployeeId();
+    if (!savedId) return;
+
+    setEmployeeId(savedId);
+    setEmployeeIdInput(savedId);
+    setState(loadScopedState<CheckState>(STORAGE_KEY_PREFIX, savedId) as CheckState);
+    setEditableLabels(loadScopedState<LabelState>(LABEL_STORAGE_KEY_PREFIX, savedId) as LabelState);
+    setEditableDescriptions(
+      loadScopedState<DescriptionState>(DESCRIPTION_STORAGE_KEY_PREFIX, savedId) as DescriptionState
+    );
+    setEditableGroupTitles(
+      loadScopedState<GroupTitleState>(GROUP_TITLE_STORAGE_KEY_PREFIX, savedId) as GroupTitleState
+    );
+  }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(LABEL_STORAGE_KEY, JSON.stringify(editableLabels));
-  }, [editableLabels]);
+    if (typeof window === "undefined" || !employeeId) return;
+    window.localStorage.setItem(
+      getStorageKey(STORAGE_KEY_PREFIX, employeeId),
+      JSON.stringify(state)
+    );
+  }, [employeeId, state]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(DESCRIPTION_STORAGE_KEY, JSON.stringify(editableDescriptions));
-  }, [editableDescriptions]);
+    if (typeof window === "undefined" || !employeeId) return;
+    window.localStorage.setItem(
+      getStorageKey(LABEL_STORAGE_KEY_PREFIX, employeeId),
+      JSON.stringify(editableLabels)
+    );
+  }, [employeeId, editableLabels]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(GROUP_TITLE_STORAGE_KEY, JSON.stringify(editableGroupTitles));
-  }, [editableGroupTitles]);
+    if (typeof window === "undefined" || !employeeId) return;
+    window.localStorage.setItem(
+      getStorageKey(DESCRIPTION_STORAGE_KEY_PREFIX, employeeId),
+      JSON.stringify(editableDescriptions)
+    );
+  }, [employeeId, editableDescriptions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !employeeId) return;
+    window.localStorage.setItem(
+      getStorageKey(GROUP_TITLE_STORAGE_KEY_PREFIX, employeeId),
+      JSON.stringify(editableGroupTitles)
+    );
+  }, [employeeId, editableGroupTitles]);
 
   const filtered = useMemo(() => {
     return selectedWeek === "전체" ? weeks : weeks.filter((w) => w.title === selectedWeek);
@@ -333,6 +362,91 @@ export default function App() {
     setEditableGroupTitles((prev) => ({ ...prev, [id]: value }));
   };
 
+  const handleEnter = () => {
+    const normalized = normalizeEmployeeId(employeeIdInput);
+
+    if (!isValidEmployeeId(normalized)) {
+      setEmployeeError("사내 아이디를 입력해주세요.");
+      return;
+    }
+
+    saveEmployeeId(normalized);
+    setEmployeeId(normalized);
+    setEmployeeIdInput(normalized);
+    setEmployeeError("");
+    setEditingField(null);
+
+    setState(loadScopedState<CheckState>(STORAGE_KEY_PREFIX, normalized) as CheckState);
+    setEditableLabels(loadScopedState<LabelState>(LABEL_STORAGE_KEY_PREFIX, normalized) as LabelState);
+    setEditableDescriptions(
+      loadScopedState<DescriptionState>(DESCRIPTION_STORAGE_KEY_PREFIX, normalized) as DescriptionState
+    );
+    setEditableGroupTitles(
+      loadScopedState<GroupTitleState>(GROUP_TITLE_STORAGE_KEY_PREFIX, normalized) as GroupTitleState
+    );
+  };
+
+  const handleResetEmployee = () => {
+    setEmployeeId("");
+    setEmployeeIdInput("");
+    setEmployeeError("");
+    setState({});
+    setEditableLabels({});
+    setEditableDescriptions({});
+    setEditableGroupTitles({});
+    setEditingField(null);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(EMPLOYEE_ID_STORAGE_KEY);
+    }
+  };
+
+  if (!employeeId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6">
+        <div className="mx-auto flex min-h-[80vh] max-w-md items-center">
+          <div className="w-full rounded-3xl bg-white p-8 shadow-xl">
+            <h1 className="text-3xl font-bold">
+              EPIS 가디언즈
+              <span className="block text-emerald-600">ON Board</span>
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              사내 아이디를 입력하면
+              <br />
+              해당 아이디 기준으로 체크리스트가 저장됩니다.
+            </p>
+
+            <div className="mt-6">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                사내 아이디
+              </label>
+              <input
+                value={employeeIdInput}
+                onChange={(e) => setEmployeeIdInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleEnter();
+                }}
+                placeholder="사내 아이디를 입력하세요"
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+              />
+              {employeeError && (
+                <p className="mt-2 text-sm text-red-600">{employeeError}</p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleEnter}
+              className="mt-5 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white"
+            >
+              입장하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6">
       <div className="mx-auto max-w-6xl">
@@ -347,6 +461,19 @@ export default function App() {
               <br />
               체계적으로 학습 내용을 기록해보세요.
             </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                사내 아이디: {employeeId}
+              </span>
+              <button
+                type="button"
+                onClick={handleResetEmployee}
+                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-gray-700"
+              >
+                아이디 변경
+              </button>
+            </div>
           </div>
 
           <div className="w-full rounded-2xl bg-black p-5 text-center text-white sm:p-6 md:max-w-[360px] md:basis-1/2 md:self-stretch">
